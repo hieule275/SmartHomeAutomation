@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smart Home Dashboard - Adafruit IO</title>
+  <style>
+    :root{
+      --bg:#0f172a;
+      --panel:#111827;
+      --card:#1f2937;
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --accent:#38bdf8;
+      --ok:#22c55e;
+      --danger:#ef4444;
+      --border:rgba(255,255,255,.08);
+    }
+
+    *{box-sizing:border-box}
+
+    body{
+      margin:0;
+      font-family:Arial, Helvetica, sans-serif;
+      color:var(--text);
+      background:linear-gradient(160deg,#020617,#0f172a 45%,#111827);
+      min-height:100vh;
+    }
+
+    .container{
+      width:min(1200px,calc(100% - 32px));
+      margin:28px auto;
+    }
+
+    .top{
+      display:flex;
+      justify-content:space-between;
+      gap:16px;
+      flex-wrap:wrap;
+      margin-bottom:20px;
+    }
+
+    .title h1{
+      margin:0;
+      font-size:32px;
+    }
+
+    .title p{
+      margin:8px 0 0;
+      color:var(--muted);
+    }
+
+    .badge{
+      padding:10px 14px;
+      border-radius:999px;
+      background:rgba(56,189,248,.12);
+      border:1px solid rgba(56,189,248,.25);
+      height:fit-content;
+    }
+
+    .panel{
+      background:rgba(17,24,39,.92);
+      border:1px solid var(--border);
+      border-radius:20px;
+      padding:20px;
+      margin-bottom:20px;
+    }
+
+    .panel h2{
+      margin:0 0 16px;
+    }
+
+    .grid2{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:18px;
+    }
+
+    .field{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+
+    .field label{
+      color:var(--muted);
+      font-size:14px;
+    }
+
+    .field input{
+      width:100%;
+      background:var(--card);
+      color:var(--text);
+      border:1px solid var(--border);
+      padding:12px 14px;
+      border-radius:12px;
+      outline:none;
+    }
+
+    .row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:12px;
+      align-items:center;
+    }
+
+    button{
+      border:none;
+      border-radius:12px;
+      padding:12px 16px;
+      cursor:pointer;
+      font-weight:700;
+      color:var(--text);
+      background:#334155;
+    }
+
+    .btn-primary{
+      background:var(--accent);
+      color:#082f49;
+    }
+
+    .btn-on{
+      background:rgba(34,197,94,.18);
+      color:#bbf7d0;
+      border:1px solid rgba(34,197,94,.35);
+    }
+
+    .btn-off{
+      background:rgba(239,68,68,.16);
+      color:#fecaca;
+      border:1px solid rgba(239,68,68,.35);
+    }
+
+    .status{
+      margin-top:14px;
+      padding:12px 14px;
+      border-radius:12px;
+      background:rgba(148,163,184,.08);
+      color:#cbd5e1;
+      border:1px solid var(--border);
+      white-space:pre-line;
+    }
+
+    .card{
+      background:linear-gradient(180deg,rgba(30,41,59,.9),rgba(15,23,42,.9));
+      border:1px solid var(--border);
+      border-radius:18px;
+      padding:18px;
+    }
+
+    .label{
+      color:var(--muted);
+      font-size:14px;
+      margin-bottom:12px;
+    }
+
+    .value{
+      font-size:42px;
+      font-weight:800;
+    }
+
+    .meta{
+      margin-top:10px;
+      color:var(--muted);
+      font-size:14px;
+    }
+
+    .led{
+      width:96px;
+      height:96px;
+      border-radius:50%;
+      background:radial-gradient(circle at 30% 30%, #334155, #111827);
+      border:2px solid rgba(255,255,255,.08);
+      margin:8px 0 14px;
+      transition:0.25s ease;
+    }
+
+    .led.on{
+      background:radial-gradient(circle at 30% 30%, #fef08a, #facc15 45%, #ca8a04 100%);
+      box-shadow:0 0 22px rgba(250,204,21,.8), 0 0 50px rgba(250,204,21,.3);
+    }
+
+    input[type="range"]{
+      width:100%;
+    }
+
+    .gate-history{
+      max-height:320px;
+      overflow-y:auto;
+      border:1px solid var(--border);
+      border-radius:14px;
+      background:rgba(255,255,255,.03);
+      padding:10px;
+    }
+
+    .gate-item{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      padding:10px 12px;
+      border-bottom:1px solid rgba(255,255,255,.06);
+      font-size:14px;
+    }
+
+    .gate-item:last-child{
+      border-bottom:none;
+    }
+
+    .gate-value{
+      font-weight:700;
+      color:#bae6fd;
+      word-break:break-word;
+    }
+
+    .gate-time{
+      color:var(--muted);
+      text-align:right;
+      min-width:180px;
+      flex-shrink:0;
+    }
+
+    .keypad-wrap{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:18px;
+    }
+
+    .pin-display{
+      width:100%;
+      background:rgba(255,255,255,.04);
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:14px 16px;
+      font-size:24px;
+      font-weight:700;
+      letter-spacing:2px;
+      min-height:56px;
+      display:flex;
+      align-items:center;
+      word-break:break-all;
+    }
+
+    .keypad{
+      display:grid;
+      grid-template-columns:repeat(3, 1fr);
+      gap:12px;
+      margin-top:14px;
+    }
+
+    .keypad button{
+      min-height:56px;
+      font-size:22px;
+      font-weight:800;
+      background:#1e293b;
+      color:var(--text);
+      border:1px solid var(--border);
+    }
+
+    .keypad-actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:12px;
+      margin-top:14px;
+    }
+
+    @media (max-width: 900px){
+      .grid2, .keypad-wrap{
+        grid-template-columns:1fr;
+      }
+
+      .gate-item{
+        flex-direction:column;
+      }
+
+      .gate-time{
+        min-width:unset;
+        text-align:left;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="top">
+      <div class="title">
+        <h1>Smart Home Dashboard</h1>
+        <p>Feeds: indoorled, nhietdo, doam, fan, brightness, security, fanauto, gate, lock</p>
+      </div>
+      <div class="badge" id="clock">--:--:--</div>
+    </div>
+
+    <section class="panel">
+      <h2>Kết nối</h2>
+      <div class="grid2">
+        <div class="field">
+          <label>Adafruit Username</label>
+          <input id="username" placeholder="Nhập username" />
+        </div>
+        <div class="field">
+          <label>AIO Key</label>
+          <input id="aioKey" type="password" placeholder="Nhập AIO key" />
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:14px">
+        <button class="btn-primary" id="connectBtn">Kết nối & tải dữ liệu</button>
+        <button id="refreshBtn">Làm mới</button>
+      </div>
+
+      <div class="status" id="statusBox">Chưa kết nối.</div>
+    </section>
+
+    <section class="panel">
+      <h2>Cảm biến</h2>
+      <div class="grid2">
+        <div class="card">
+          <div class="label">Nhiệt độ</div>
+          <div class="value"><span id="tempValue">--</span> °C</div>
+          <div class="meta" id="tempTime">Chưa có dữ liệu</div>
+        </div>
+
+        <div class="card">
+          <div class="label">Độ ẩm</div>
+          <div class="value"><span id="humValue">--</span> %</div>
+          <div class="meta" id="humTime">Chưa có dữ liệu</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Đèn trong nhà</h2>
+      <div class="grid2">
+        <div class="card">
+          <div class="label">Trạng thái</div>
+          <div class="led" id="ledIndicator"></div>
+          <div class="value" style="font-size:24px" id="ledStateText">Không xác định</div>
+          <div class="meta" id="ledTime">Chưa có dữ liệu</div>
+        </div>
+
+        <div class="card">
+          <div class="label">Điều khiển</div>
+          <div class="row">
+            <button class="btn-on" id="btnLedOn">BẬT ĐÈN</button>
+            <button class="btn-off" id="btnLedOff">TẮT ĐÈN</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Quạt và độ sáng</h2>
+      <div class="grid2">
+        <div class="card">
+          <div class="label">Tốc độ quạt</div>
+          <div class="value"><span id="fanValue">0</span> %</div>
+          <input id="fanSlider" type="range" min="0" max="100" value="0" />
+          <div class="row" style="margin-top:12px">
+            <button class="btn-primary" id="sendFanBtn">Gửi tốc độ quạt</button>
+          </div>
+          <div class="meta" id="fanTime">Chưa có dữ liệu</div>
+        </div>
+
+        <div class="card">
+          <div class="label">Độ sáng đèn</div>
+          <div class="value"><span id="brightnessValue">0</span> %</div>
+          <input id="brightnessSlider" type="range" min="0" max="100" value="0" />
+          <div class="row" style="margin-top:12px">
+            <button class="btn-primary" id="sendBrightnessBtn">Gửi độ sáng</button>
+          </div>
+          <div class="meta" id="brightnessTime">Chưa có dữ liệu</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Chế độ hệ thống</h2>
+      <div class="grid2">
+        <div class="card">
+          <div class="label">Cảnh báo trộm</div>
+          <div class="value" style="font-size:24px" id="securityStateText">Không xác định</div>
+          <div class="row" style="margin-top:12px">
+            <button class="btn-on" id="btnSecurityOn">BẬT CẢNH BÁO</button>
+            <button class="btn-off" id="btnSecurityOff">TẮT CẢNH BÁO</button>
+          </div>
+          <div class="meta" id="securityTime">Chưa có dữ liệu</div>
+        </div>
+
+        <div class="card">
+          <div class="label">Quạt tự động</div>
+          <div class="value" style="font-size:24px" id="fanAutoStateText">Không xác định</div>
+          <div class="row" style="margin-top:12px">
+            <button class="btn-on" id="btnFanAutoOn">BẬT TỰ ĐỘNG</button>
+            <button class="btn-off" id="btnFanAutoOff">TẮT TỰ ĐỘNG</button>
+          </div>
+          <div class="meta" id="fanAutoTime">Chưa có dữ liệu</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Khóa cửa</h2>
+      <div class="card">
+        <div class="label">Mỗi lần bấm một phím 0-9, *, # sẽ gửi ngay ký tự đó lên feed lock</div>
+
+        <div class="keypad-wrap">
+          <div>
+            <div class="label">Các phím đã bấm</div>
+            <div class="pin-display" id="lockPinDisplay">----</div>
+            <div class="meta" id="lockTime">Chưa gửi phím nào</div>
+
+            <div class="keypad-actions">
+              <button class="btn-off" id="clearLockBtn">Xóa</button>
+            </div>
+          </div>
+
+          <div>
+            <div class="keypad" id="lockKeypad">
+              <button data-key="1">1</button>
+              <button data-key="2">2</button>
+              <button data-key="3">3</button>
+              <button data-key="4">4</button>
+              <button data-key="5">5</button>
+              <button data-key="6">6</button>
+              <button data-key="7">7</button>
+              <button data-key="8">8</button>
+              <button data-key="9">9</button>
+              <button data-key="*">*</button>
+              <button data-key="0">0</button>
+              <button data-key="#">#</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Lịch sử cổng (gate)</h2>
+      <div class="card">
+        <div class="label">Sau khi bấm xóa, dashboard chỉ hiện dữ liệu gate mới phát sinh từ thời điểm đó</div>
+        <div class="row" style="margin-bottom:12px">
+          <button class="btn-off" id="clearGateBtn">Xóa lịch sử</button>
+        </div>
+        <div class="gate-history" id="gateHistory">
+          <div class="gate-item">
+            <span class="gate-value">Chưa có dữ liệu</span>
+            <span class="gate-time">--</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const FEEDS = {
+      led: "indoorled",
+      temp: "nhietdo",
+      hum: "doam",
+      fan: "fan",
+      brightness: "brightness",
+      security: "security",
+      fanauto: "fanauto",
+      gate: "gate",
+      lock: "lock"
+    };
+
+    const el = {
+      username: document.getElementById("username"),
+      aioKey: document.getElementById("aioKey"),
+      connectBtn: document.getElementById("connectBtn"),
+      refreshBtn: document.getElementById("refreshBtn"),
+      statusBox: document.getElementById("statusBox"),
+
+      tempValue: document.getElementById("tempValue"),
+      humValue: document.getElementById("humValue"),
+      tempTime: document.getElementById("tempTime"),
+      humTime: document.getElementById("humTime"),
+
+      ledIndicator: document.getElementById("ledIndicator"),
+      ledStateText: document.getElementById("ledStateText"),
+      ledTime: document.getElementById("ledTime"),
+      btnLedOn: document.getElementById("btnLedOn"),
+      btnLedOff: document.getElementById("btnLedOff"),
+
+      fanSlider: document.getElementById("fanSlider"),
+      brightnessSlider: document.getElementById("brightnessSlider"),
+      fanValue: document.getElementById("fanValue"),
+      brightnessValue: document.getElementById("brightnessValue"),
+      sendFanBtn: document.getElementById("sendFanBtn"),
+      sendBrightnessBtn: document.getElementById("sendBrightnessBtn"),
+      fanTime: document.getElementById("fanTime"),
+      brightnessTime: document.getElementById("brightnessTime"),
+
+      securityStateText: document.getElementById("securityStateText"),
+      securityTime: document.getElementById("securityTime"),
+      btnSecurityOn: document.getElementById("btnSecurityOn"),
+      btnSecurityOff: document.getElementById("btnSecurityOff"),
+
+      fanAutoStateText: document.getElementById("fanAutoStateText"),
+      fanAutoTime: document.getElementById("fanAutoTime"),
+      btnFanAutoOn: document.getElementById("btnFanAutoOn"),
+      btnFanAutoOff: document.getElementById("btnFanAutoOff"),
+
+      lockPinDisplay: document.getElementById("lockPinDisplay"),
+      lockTime: document.getElementById("lockTime"),
+      clearLockBtn: document.getElementById("clearLockBtn"),
+      lockKeypad: document.getElementById("lockKeypad"),
+
+      gateHistory: document.getElementById("gateHistory"),
+      clearGateBtn: document.getElementById("clearGateBtn"),
+
+      clock: document.getElementById("clock")
+    };
+
+    let timer = null;
+    let gateClearTime = null;
+    let currentLockPin = "";
+
+    function setStatus(msg, isError = false) {
+      el.statusBox.textContent = msg;
+      el.statusBox.style.borderColor = isError ? "rgba(239,68,68,.35)" : "rgba(255,255,255,.08)";
+      el.statusBox.style.color = isError ? "#fecaca" : "#cbd5e1";
+      el.statusBox.style.background = isError ? "rgba(239,68,68,.08)" : "rgba(148,163,184,.08)";
+    }
+
+    function getCreds() {
+      const username = el.username.value.trim();
+      const aioKey = el.aioKey.value.trim();
+
+      if (!username || !aioKey) {
+        throw new Error("Bạn chưa nhập username hoặc AIO key.");
+      }
+
+      return { username, aioKey };
+    }
+
+    function makeUrl(username, feedKey, aioKey, last = false) {
+      const base = `https://io.adafruit.com/api/v2/${username}/feeds/${feedKey}/data`;
+      return last
+        ? `${base}/last?x-aio-key=${encodeURIComponent(aioKey)}`
+        : `${base}?x-aio-key=${encodeURIComponent(aioKey)}`;
+    }
+
+    async function fetchLastValue(username, aioKey, feedKey) {
+      const res = await fetch(makeUrl(username, feedKey, aioKey, true));
+      if (!res.ok) {
+        throw new Error(`Không đọc được feed ${feedKey} (HTTP ${res.status})`);
+      }
+      return await res.json();
+    }
+
+    async function sendValue(username, aioKey, feedKey, value) {
+      const res = await fetch(makeUrl(username, feedKey, aioKey, false), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ value: String(value) })
+      });
+
+      if (!res.ok) {
+        throw new Error(`Không gửi được tới feed ${feedKey} (HTTP ${res.status})`);
+      }
+
+      return await res.json();
+    }
+
+    async function fetchFeedHistory(username, aioKey, feedKey, limit = 30) {
+      const url = `https://io.adafruit.com/api/v2/${username}/feeds/${feedKey}/data?limit=${limit}&x-aio-key=${encodeURIComponent(aioKey)}`;
+      const res = await fetch(url);
+
+      if (!res.ok) {
+        throw new Error(`Không đọc được lịch sử feed ${feedKey} (HTTP ${res.status})`);
+      }
+
+      return await res.json();
+    }
+
+    function fmtTime(t) {
+      if (!t) return "Chưa có dữ liệu";
+      return "Cập nhật: " + new Date(t).toLocaleString("vi-VN");
+    }
+
+    function isOn(v) {
+      const s = String(v).trim().toLowerCase();
+      return s === "on" || s === "1" || s === "true";
+    }
+
+    function clamp100(v) {
+      return Math.max(0, Math.min(100, Number(v) || 0));
+    }
+
+    function escapeHtml(str) {
+      return str
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function renderTemp(d) {
+      el.tempValue.textContent = Number(d.value).toFixed(1);
+      el.tempTime.textContent = fmtTime(d.created_at);
+    }
+
+    function renderHum(d) {
+      el.humValue.textContent = Number(d.value).toFixed(1);
+      el.humTime.textContent = fmtTime(d.created_at);
+    }
+
+    function renderLed(d) {
+      const on = isOn(d.value);
+      el.ledIndicator.classList.toggle("on", on);
+      el.ledStateText.textContent = on ? "Đèn đang BẬT" : "Đèn đang TẮT";
+      el.ledTime.textContent = fmtTime(d.created_at);
+    }
+
+    function renderFan(d) {
+      const v = clamp100(d.value);
+      el.fanSlider.value = v;
+      el.fanValue.textContent = v;
+      el.fanTime.textContent = fmtTime(d.created_at);
+    }
+
+    function renderBrightness(d) {
+      const v = clamp100(d.value);
+      el.brightnessSlider.value = v;
+      el.brightnessValue.textContent = v;
+      el.brightnessTime.textContent = fmtTime(d.created_at);
+    }
+
+    function renderSecurity(d) {
+      const on = isOn(d.value);
+      el.securityStateText.textContent = on ? "Cảnh báo trộm đang BẬT" : "Cảnh báo trộm đang TẮT";
+      el.securityTime.textContent = fmtTime(d.created_at);
+    }
+
+    function renderFanAuto(d) {
+      const on = isOn(d.value);
+      el.fanAutoStateText.textContent = on ? "Quạt tự động đang BẬT" : "Quạt tự động đang TẮT";
+      el.fanAutoTime.textContent = fmtTime(d.created_at);
+    }
+
+    function renderLockPin() {
+      el.lockPinDisplay.textContent = currentLockPin.length ? currentLockPin : "----";
+    }
+
+    function renderGateHistory(items) {
+      if (!items || items.length === 0) {
+        el.gateHistory.innerHTML = `
+          <div class="gate-item">
+            <span class="gate-value">Chưa có dữ liệu</span>
+            <span class="gate-time">--</span>
+          </div>
+        `;
+        return;
+      }
+
+      let filteredItems = items;
+
+      if (gateClearTime) {
+        filteredItems = items.filter(item => {
+          return new Date(item.created_at).getTime() >= gateClearTime;
+        });
+      }
+
+      if (filteredItems.length === 0) {
+        el.gateHistory.innerHTML = `
+          <div class="gate-item">
+            <span class="gate-value">Chưa có dữ liệu mới sau khi xóa</span>
+            <span class="gate-time">--</span>
+          </div>
+        `;
+        return;
+      }
+
+      el.gateHistory.innerHTML = filteredItems.map(item => `
+        <div class="gate-item">
+          <span class="gate-value">${escapeHtml(String(item.value))}</span>
+          <span class="gate-time">${new Date(item.created_at).toLocaleString("vi-VN")}</span>
+        </div>
+      `).join("");
+    }
+
+    async function refreshDashboard() {
+      try {
+        const { username, aioKey } = getCreds();
+        setStatus("Đang tải dữ liệu...");
+
+        const [temp, hum, led, fan, brightness, security, fanauto, gateHistory] = await Promise.all([
+          fetchLastValue(username, aioKey, FEEDS.temp),
+          fetchLastValue(username, aioKey, FEEDS.hum),
+          fetchLastValue(username, aioKey, FEEDS.led),
+          fetchLastValue(username, aioKey, FEEDS.fan),
+          fetchLastValue(username, aioKey, FEEDS.brightness),
+          fetchLastValue(username, aioKey, FEEDS.security),
+          fetchLastValue(username, aioKey, FEEDS.fanauto),
+          fetchFeedHistory(username, aioKey, FEEDS.gate, 30)
+        ]);
+
+        renderTemp(temp);
+        renderHum(hum);
+        renderLed(led);
+        renderFan(fan);
+        renderBrightness(brightness);
+        renderSecurity(security);
+        renderFanAuto(fanauto);
+        renderGateHistory(gateHistory);
+
+        setStatus("Kết nối thành công. Tự làm mới mỗi 10 giây.");
+      } catch (e) {
+        setStatus(e.message, true);
+        console.error(e);
+      }
+    }
+
+    async function sendAndRefresh(feedKey, value, okMsg) {
+      try {
+        const { username, aioKey } = getCreds();
+        setStatus(`Đang gửi ${feedKey} = ${value} ...`);
+
+        const result = await sendValue(username, aioKey, feedKey, value);
+
+        if (feedKey === FEEDS.led) renderLed(result);
+        if (feedKey === FEEDS.fan) renderFan(result);
+        if (feedKey === FEEDS.brightness) renderBrightness(result);
+        if (feedKey === FEEDS.security) renderSecurity(result);
+        if (feedKey === FEEDS.fanauto) renderFanAuto(result);
+
+        setStatus(okMsg);
+      } catch (e) {
+        setStatus(e.message, true);
+        console.error(e);
+      }
+    }
+
+    function startAutoRefresh() {
+      if (timer) clearInterval(timer);
+      timer = setInterval(refreshDashboard, 10000);
+    }
+
+    el.connectBtn.addEventListener("click", async () => {
+      await refreshDashboard();
+      startAutoRefresh();
+    });
+
+    el.refreshBtn.addEventListener("click", refreshDashboard);
+
+    el.btnLedOn.addEventListener("click", () => {
+      sendAndRefresh(FEEDS.led, "ON", "Đã bật đèn.");
+    });
+
+    el.btnLedOff.addEventListener("click", () => {
+      sendAndRefresh(FEEDS.led, "OFF", "Đã tắt đèn.");
+    });
+
+    el.fanSlider.addEventListener("input", () => {
+      el.fanValue.textContent = el.fanSlider.value;
+    });
+
+    el.brightnessSlider.addEventListener("input", () => {
+      el.brightnessValue.textContent = el.brightnessSlider.value;
+    });
+
+    el.sendFanBtn.addEventListener("click", () => {
+      sendAndRefresh(FEEDS.fan, el.fanSlider.value, `Đã gửi tốc độ quạt ${el.fanSlider.value}.`);
+    });
+
+    el.sendBrightnessBtn.addEventListener("click", () => {
+      sendAndRefresh(FEEDS.brightness, el.brightnessSlider.value, `Đã gửi độ sáng ${el.brightnessSlider.value}.`);
+    });
+
+    el.btnSecurityOn.addEventListener("click", () => {
+      sendAndRefresh(FEEDS.security, "ON", "Đã bật cảnh báo trộm.");
+    });
+
+    el.btnSecurityOff.addEventListener("click", () => {
+      sendAndRefresh(FEEDS.security, "OFF", "Đã tắt cảnh báo trộm.");
+    });
+
+    el.btnFanAutoOn.addEventListener("click", () => {
+      sendAndRefresh(FEEDS.fanauto, "ON", "Đã bật quạt tự động.");
+    });
+
+    el.btnFanAutoOff.addEventListener("click", () => {
+      sendAndRefresh(FEEDS.fanauto, "OFF", "Đã tắt quạt tự động.");
+    });
+
+    el.lockKeypad.addEventListener("click", async (event) => {
+      const btn = event.target.closest("button[data-key]");
+      if (!btn) return;
+
+      try {
+        const key = btn.dataset.key;
+        const { username, aioKey } = getCreds();
+
+        if (currentLockPin.length >= 16) {
+          currentLockPin = "";
+        }
+
+        currentLockPin += key;
+        renderLockPin();
+
+        setStatus(`Đang gửi phím: ${key}`);
+        const result = await sendValue(username, aioKey, FEEDS.lock, key);
+
+        el.lockTime.textContent = `Phím gần nhất: ${key} • ${fmtTime(result.created_at)}`;
+        setStatus(`Đã gửi phím ${key} lên feed lock.`);
+      } catch (e) {
+        setStatus(e.message, true);
+        console.error(e);
+      }
+    });
+
+    el.clearLockBtn.addEventListener("click", () => {
+      currentLockPin = "";
+      renderLockPin();
+      setStatus("Đã xóa phần hiển thị mã đã bấm.");
+    });
+
+    el.clearGateBtn.addEventListener("click", () => {
+      gateClearTime = Date.now();
+
+      el.gateHistory.innerHTML = `
+        <div class="gate-item">
+          <span class="gate-value">Đã xóa lịch sử cũ. Đang chờ dữ liệu mới...</span>
+          <span class="gate-time">--</span>
+        </div>
+      `;
+
+      setStatus("Đã xóa lịch sử cũ của gate trên dashboard. Từ bây giờ chỉ hiện dữ liệu mới.");
+    });
+
+    function updateClock() {
+      el.clock.textContent = new Date().toLocaleTimeString("vi-VN");
+    }
+
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    renderLockPin();
+
+    el.username.value = "YOUR_USERNAME";
+    el.aioKey.value = "YOUR_AIO_KEY";
+  </script>
+</body>
+</html>
