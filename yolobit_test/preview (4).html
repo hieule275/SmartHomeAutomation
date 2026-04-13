@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard Yolo:Bit Smart Home</title>
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f3f6fb;
+      color: #1f2937;
+    }
+    .wrap {
+      max-width: 1320px;
+      margin: 24px auto;
+      padding: 16px;
+    }
+    h1 {
+      margin: 0 0 10px;
+      font-size: 30px;
+    }
+    .sub {
+      color: #6b7280;
+      margin-bottom: 20px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 16px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+    }
+    .card h2 {
+      margin-top: 0;
+      margin-bottom: 14px;
+    }
+    label {
+      display: block;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    input[type="text"], input[type="number"] {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 10px;
+      font-size: 15px;
+      margin-bottom: 12px;
+    }
+    input[type="range"] {
+      width: 100%;
+    }
+    .row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    button {
+      border: none;
+      border-radius: 10px;
+      padding: 12px 18px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .blue { background: #2563eb; color: white; }
+    .gray { background: #6b7280; color: white; }
+    .green { background: #16a34a; color: white; }
+    .red { background: #dc2626; color: white; }
+    .orange { background: #ea580c; color: white; }
+    .purple { background: #7c3aed; color: white; }
+
+    .metric {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 16px;
+      border-radius: 12px;
+      background: #f9fafb;
+      margin-bottom: 10px;
+    }
+    .metric .name {
+      color: #6b7280;
+      font-weight: 700;
+    }
+    .metric .value {
+      font-size: 24px;
+      font-weight: 800;
+    }
+
+    .status {
+      display: inline-block;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-weight: 700;
+      background: #e5e7eb;
+      margin-bottom: 10px;
+    }
+    .small {
+      color: #6b7280;
+      font-size: 14px;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 13px;
+      background: #eef2ff;
+      color: #3730a3;
+      margin-left: 8px;
+    }
+    .pill-safe {
+      background: #dcfce7;
+      color: #166534;
+    }
+    .pill-alarm {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+    .pill-gate-detected {
+      background: #fef3c7;
+      color: #92400e;
+    }
+    .pill-gate-clear {
+      background: #dcfce7;
+      color: #166534;
+    }
+    .pill-door-lock {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+    .pill-door-open {
+      background: #dcfce7;
+      color: #166534;
+    }
+    .pill-air-bad {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+    .pill-air-ok {
+      background: #dcfce7;
+      color: #166534;
+    }
+    .pill-fire {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .log {
+      background: #0f172a;
+      color: #e2e8f0;
+      border-radius: 12px;
+      padding: 12px;
+      height: 260px;
+      overflow: auto;
+      white-space: pre-wrap;
+      font-family: Consolas, monospace;
+      font-size: 13px;
+    }
+
+    .value-line {
+      margin-top: 8px;
+      font-weight: 700;
+    }
+
+    .led-dot {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #9ca3af;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+    .led-on {
+      background: #ef4444;
+      box-shadow: 0 0 10px rgba(239,68,68,0.8);
+    }
+
+    .keypad {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .keypad button {
+      padding: 16px 0;
+      font-size: 18px;
+    }
+
+    .chart-wrap {
+      background: #f9fafb;
+      border-radius: 12px;
+      padding: 12px;
+      margin-top: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Dashboard Yolo:Bit Smart Home</h1>
+    <div class="sub">Điều khiển LED, quạt, security, gate, khóa cửa, chất lượng không khí, cảnh báo cháy và theo dõi điện năng ước tính.</div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>Kết nối MQTT</h2>
+        <div id="connStatus" class="status">Chưa kết nối</div>
+
+        <label>Broker IP</label>
+        <input id="brokerIp" type="text" value="192.168.1.9" />
+
+        <label>WebSocket Port</label>
+        <input id="brokerPort" type="number" value="9001" />
+
+        <div class="row">
+          <button class="blue" onclick="connectMQTT()">Kết nối</button>
+          <button class="gray" onclick="disconnectMQTT()">Ngắt kết nối</button>
+        </div>
+
+        <p class="small" style="margin-top:12px;">
+          Broker cần bật MQTT port 1883 cho board và WebSocket port 9001 cho dashboard.
+        </p>
+      </div>
+
+      <div class="card">
+        <h2>LED trong nhà</h2>
+        <div style="font-weight:700; margin-bottom:12px;">
+          Trạng thái: <span id="ledState">OFF</span>
+          <span id="ledDot" class="led-dot"></span>
+        </div>
+
+        <div class="row" style="margin-bottom:16px;">
+          <button class="green" onclick="sendLED('ON')">Bật ON</button>
+          <button class="red" onclick="sendLED('OFF')">Tắt OFF</button>
+        </div>
+
+        <label>Độ sáng LED</label>
+        <input id="brightness" type="range" min="0" max="100" value="100" oninput="changeBrightnessText(this.value)" />
+        <div class="value-line">Giá trị: <span id="brightnessValue">100</span>%</div>
+
+        <div class="row" style="margin-top:12px;">
+          <button class="orange" onclick="sendBrightness()">Gửi độ sáng</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Cảm biến môi trường</h2>
+        <div class="metric">
+          <div class="name">Nhiệt độ</div>
+          <div class="value"><span id="tempValue">--</span> °C</div>
+        </div>
+        <div class="metric">
+          <div class="name">Độ ẩm</div>
+          <div class="value"><span id="humiValue">--</span> %</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Điều khiển quạt</h2>
+        <div style="margin-bottom:12px; font-weight:700;">
+          Chế độ: <span id="fanModeText">MANUAL</span>
+          <span id="fanautoStatus" class="pill">OFF</span>
+        </div>
+
+        <div class="row" style="margin-bottom:16px;">
+          <button class="purple" onclick="setFanAuto('ON')">Bật Auto Fan</button>
+          <button class="gray" onclick="setFanAuto('OFF')">Tắt Auto Fan</button>
+        </div>
+
+        <label>Tốc độ quạt tay</label>
+        <input id="fanSpeed" type="range" min="0" max="100" value="0" oninput="changeFanText(this.value)" />
+        <div class="value-line">Tốc độ: <span id="fanValue">0</span>%</div>
+
+        <div class="row" style="margin-top:12px;">
+          <button class="orange" onclick="sendFanSpeed()">Gửi tốc độ quạt</button>
+        </div>
+
+        <p class="small" style="margin-top:12px;">
+          Khi Auto Fan đang ON, board sẽ tự quyết định tốc độ quạt theo nhiệt độ.
+        </p>
+      </div>
+
+      <div class="card">
+        <h2>Security Mode</h2>
+        <div style="margin-bottom:12px; font-weight:700;">
+          Security: <span id="securityStatusText">OFF</span>
+          <span id="alarmStatus" class="pill pill-safe">SAFE</span>
+        </div>
+
+        <div class="row" style="margin-bottom:16px;">
+          <button class="purple" onclick="setSecurity('ON')">Bật Security</button>
+          <button class="gray" onclick="setSecurity('OFF')">Tắt Security</button>
+        </div>
+
+        <p class="small">
+          Khi Security ON và cảm biến phát hiện xâm nhập, board sẽ phát cảnh báo và gửi trạng thái alarm lên dashboard.
+        </p>
+      </div>
+
+      <div class="card">
+        <h2>Gate Status</h2>
+        <div style="margin-bottom:12px; font-weight:700;">
+          Gate: <span id="gateStatusText">no one outside</span>
+          <span id="gateStatusPill" class="pill pill-gate-clear">CLEAR</span>
+        </div>
+
+        <p class="small">
+          Hệ thống gate sẽ ghi log khi phát hiện có người đứng ngoài cổng.
+        </p>
+      </div>
+
+      <div class="card">
+        <h2>Door Lock</h2>
+        <div style="margin-bottom:12px; font-weight:700;">
+          Door: <span id="doorStatusText">LOCKED</span>
+          <span id="doorStatusPill" class="pill pill-door-lock">LOCKED</span>
+        </div>
+
+        <div style="margin-bottom:12px; font-weight:700;">
+          PIN đang nhập: <span id="doorInputText" class="pill">----</span>
+        </div>
+
+        <div class="keypad">
+          <button onclick="sendLockKey('1')">1</button>
+          <button onclick="sendLockKey('2')">2</button>
+          <button onclick="sendLockKey('3')">3</button>
+
+          <button onclick="sendLockKey('4')">4</button>
+          <button onclick="sendLockKey('5')">5</button>
+          <button onclick="sendLockKey('6')">6</button>
+
+          <button onclick="sendLockKey('7')">7</button>
+          <button onclick="sendLockKey('8')">8</button>
+          <button onclick="sendLockKey('9')">9</button>
+
+          <button class="gray" onclick="sendLockKey('*')">Clear</button>
+          <button onclick="sendLockKey('0')">0</button>
+          <button class="blue" onclick="sendLockKey('#')">Enter</button>
+        </div>
+
+        <p class="small" style="margin-top:12px;">
+          PIN mở cửa: <b>2005</b>. PIN khóa cửa: <b>2023</b>.
+        </p>
+      </div>
+
+      <div class="card">
+        <h2>Air Quality</h2>
+        <div style="margin-bottom:12px; font-weight:700;">
+          Chất lượng không khí:
+          <span id="airQualityText">OK</span>
+          <span id="airQualityPill" class="pill pill-air-ok">OK</span>
+        </div>
+
+        <div class="metric">
+          <div class="name">Air Value</div>
+          <div class="value"><span id="airValueText">0</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Fire Alarm</h2>
+        <div style="margin-bottom:12px; font-weight:700;">
+          Trạng thái cháy:
+          <span id="fireStatusText">SAFE</span>
+          <span id="fireStatusPill" class="pill pill-safe">SAFE</span>
+        </div>
+
+        <p class="small">
+          Khi cảm biến lửa phát hiện cháy, dashboard sẽ hiện FIRE.
+        </p>
+      </div>
+
+      <div class="card" style="grid-column: 1 / -1;">
+        <h2>Ước tính điện năng tiêu thụ</h2>
+        <p class="small">
+          Biểu đồ là ước tính dựa trên thời gian bật và mức độ sáng/tốc độ. Không phải số đo điện thật từ cảm biến công suất.
+        </p>
+
+        <div class="metric">
+          <div class="name">LED tích lũy</div>
+          <div class="value"><span id="ledEnergyText">0.000</span> Wh</div>
+        </div>
+
+        <div class="metric">
+          <div class="name">Quạt tích lũy</div>
+          <div class="value"><span id="fanEnergyText">0.000</span> Wh</div>
+        </div>
+
+        <div class="chart-wrap">
+          <canvas id="energyChart" height="100"></canvas>
+        </div>
+      </div>
+
+      <div class="card" style="grid-column: 1 / -1;">
+        <h2>Nhật ký MQTT</h2>
+        <div id="log" class="log"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let client = null;
+    let energyChart = null;
+
+    // Giả định công suất cực đại
+    const LED_MAX_WATT = 1.0;
+    const FAN_MAX_WATT = 5.0;
+
+    let ledStateCurrent = 'OFF';
+    let ledBrightnessCurrent = 100;
+    let fanSpeedCurrent = 0;
+
+    let ledEnergyWh = 0;
+    let fanEnergyWh = 0;
+    let lastEnergyTs = Date.now();
+    let lastChartTs = 0;
+
+    function log(msg) {
+      const el = document.getElementById('log');
+      const t = new Date().toLocaleTimeString();
+      el.textContent += `[${t}] ${msg}\n`;
+      el.scrollTop = el.scrollHeight;
+    }
+
+    function setConnStatus(text) {
+      document.getElementById('connStatus').textContent = text;
+    }
+
+    function changeBrightnessText(value) {
+      document.getElementById('brightnessValue').textContent = value;
+      ledBrightnessCurrent = Number(value) || 0;
+    }
+
+    function changeFanText(value) {
+      document.getElementById('fanValue').textContent = value;
+      fanSpeedCurrent = Number(value) || 0;
+    }
+
+    function updateLedUI(state) {
+      ledStateCurrent = state;
+      document.getElementById('ledState').textContent = state;
+      const dot = document.getElementById('ledDot');
+      if (state === 'ON') {
+        dot.classList.add('led-on');
+      } else {
+        dot.classList.remove('led-on');
+      }
+    }
+
+    function updateFanAutoStatus(state) {
+      document.getElementById('fanautoStatus').textContent = state;
+      if (state === 'ON') {
+        document.getElementById('fanModeText').textContent = 'AUTO';
+      } else {
+        document.getElementById('fanModeText').textContent = 'MANUAL';
+      }
+    }
+
+    function updateSecurityStatus(state) {
+      document.getElementById('securityStatusText').textContent = state;
+    }
+
+    function updateAlarmUI(alarm) {
+      const el = document.getElementById('alarmStatus');
+      if (alarm === 'ON') {
+        el.textContent = 'ALARM';
+        el.classList.remove('pill-safe');
+        el.classList.add('pill-alarm');
+      } else {
+        el.textContent = 'SAFE';
+        el.classList.remove('pill-alarm');
+        el.classList.add('pill-safe');
+      }
+    }
+
+    function updateGateUI(msg) {
+      const textEl = document.getElementById('gateStatusText');
+      const pillEl = document.getElementById('gateStatusPill');
+
+      textEl.textContent = msg;
+
+      if (msg === 'there is a person outside') {
+        pillEl.textContent = 'DETECTED';
+        pillEl.classList.remove('pill-gate-clear');
+        pillEl.classList.add('pill-gate-detected');
+      } else {
+        pillEl.textContent = 'CLEAR';
+        pillEl.classList.remove('pill-gate-detected');
+        pillEl.classList.add('pill-gate-clear');
+      }
+    }
+
+    function updateDoorUI(state) {
+      const textEl = document.getElementById('doorStatusText');
+      const pillEl = document.getElementById('doorStatusPill');
+
+      textEl.textContent = state;
+
+      if (state === 'UNLOCKED') {
+        pillEl.textContent = 'UNLOCKED';
+        pillEl.classList.remove('pill-door-lock');
+        pillEl.classList.add('pill-door-open');
+      } else {
+        pillEl.textContent = 'LOCKED';
+        pillEl.classList.remove('pill-door-open');
+        pillEl.classList.add('pill-door-lock');
+      }
+    }
+
+    function updateLockInputUI(value) {
+      if (value === '') {
+        document.getElementById('doorInputText').textContent = '----';
+      } else {
+        document.getElementById('doorInputText').textContent = value;
+      }
+    }
+
+    function updateAirQualityUI(state) {
+      const textEl = document.getElementById('airQualityText');
+      const pillEl = document.getElementById('airQualityPill');
+
+      textEl.textContent = state;
+
+      if (state === 'BAD') {
+        pillEl.textContent = 'BAD';
+        pillEl.classList.remove('pill-air-ok', 'pill-safe');
+        pillEl.classList.add('pill-air-bad');
+      } else {
+        pillEl.textContent = 'OK';
+        pillEl.classList.remove('pill-air-bad');
+        pillEl.classList.add('pill-air-ok');
+      }
+    }
+
+    function updateFireUI(state) {
+      const textEl = document.getElementById('fireStatusText');
+      const pillEl = document.getElementById('fireStatusPill');
+
+      textEl.textContent = state;
+
+      if (state === 'FIRE') {
+        pillEl.textContent = 'FIRE';
+        pillEl.classList.remove('pill-safe');
+        pillEl.classList.add('pill-fire');
+      } else {
+        pillEl.textContent = 'SAFE';
+        pillEl.classList.remove('pill-fire');
+        pillEl.classList.add('pill-safe');
+      }
+    }
+
+    function initEnergyChart() {
+      const ctx = document.getElementById('energyChart').getContext('2d');
+      energyChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [
+            {
+              label: 'LED Energy (Wh)',
+              data: [],
+              tension: 0.25,
+              fill: false
+            },
+            {
+              label: 'Fan Energy (Wh)',
+              data: [],
+              tension: 0.25,
+              fill: false
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          animation: false,
+          scales: {
+            y: {
+              beginAtZero: true,
+              title: {
+                display: true,
+                text: 'Wh'
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function updateEnergyModel() {
+      const now = Date.now();
+      const dtHours = (now - lastEnergyTs) / 3600000;
+      lastEnergyTs = now;
+
+      const ledPower = ledStateCurrent === 'ON'
+        ? LED_MAX_WATT * (ledBrightnessCurrent / 100)
+        : 0;
+
+      const fanPower = FAN_MAX_WATT * (fanSpeedCurrent / 100);
+
+      ledEnergyWh += ledPower * dtHours;
+      fanEnergyWh += fanPower * dtHours;
+
+      document.getElementById('ledEnergyText').textContent = ledEnergyWh.toFixed(3);
+      document.getElementById('fanEnergyText').textContent = fanEnergyWh.toFixed(3);
+
+      if (!energyChart) return;
+      if (now - lastChartTs < 5000) return;
+      lastChartTs = now;
+
+      const label = new Date(now).toLocaleTimeString();
+
+      energyChart.data.labels.push(label);
+      energyChart.data.datasets[0].data.push(Number(ledEnergyWh.toFixed(3)));
+      energyChart.data.datasets[1].data.push(Number(fanEnergyWh.toFixed(3)));
+
+      if (energyChart.data.labels.length > 20) {
+        energyChart.data.labels.shift();
+        energyChart.data.datasets[0].data.shift();
+        energyChart.data.datasets[1].data.shift();
+      }
+
+      energyChart.update();
+    }
+
+    function connectMQTT() {
+      const ip = document.getElementById('brokerIp').value.trim();
+      const port = document.getElementById('brokerPort').value.trim();
+      const url = `ws://${ip}:${port}`;
+
+      if (client) {
+        try { client.end(true); } catch (e) {}
+      }
+
+      log('Đang kết nối ' + url);
+      client = mqtt.connect(url);
+
+      client.on('connect', function() {
+        setConnStatus('Đã kết nối MQTT');
+        log('Kết nối thành công');
+
+        const topics = [
+          'indoor/nhietdo',
+          'indoor/doam',
+          'indoor/fan',
+          'indoor/fanauto_status',
+          'indoor/fan_mode',
+          'indoor/security_status',
+          'indoor/alarm',
+          'indoor/gate',
+          'indoor/door',
+          'indoor/lock_input',
+          'indoor/locklog',
+          'indoor/air_quality',
+          'indoor/air_value',
+          'indoor/fire'
+        ];
+
+        topics.forEach(topic => {
+          client.subscribe(topic, function(err) {
+            if (err) {
+              log('Subscribe lỗi: ' + topic);
+            } else {
+              log('Đã subscribe: ' + topic);
+            }
+          });
+        });
+      });
+
+      client.on('message', function(topic, message) {
+        const msg = message.toString().trim();
+        log(`Nhận [${topic}] = ${msg}`);
+
+        if (topic === 'indoor/nhietdo') {
+          document.getElementById('tempValue').textContent = msg;
+        } else if (topic === 'indoor/doam') {
+          document.getElementById('humiValue').textContent = msg;
+        } else if (topic === 'indoor/fan') {
+          document.getElementById('fanValue').textContent = msg;
+          document.getElementById('fanSpeed').value = msg;
+          fanSpeedCurrent = Number(msg) || 0;
+        } else if (topic === 'indoor/fanauto_status') {
+          updateFanAutoStatus(msg);
+        } else if (topic === 'indoor/fan_mode') {
+          document.getElementById('fanModeText').textContent = msg;
+        } else if (topic === 'indoor/security_status') {
+          updateSecurityStatus(msg);
+        } else if (topic === 'indoor/alarm') {
+          updateAlarmUI(msg);
+        } else if (topic === 'indoor/gate') {
+          updateGateUI(msg);
+        } else if (topic === 'indoor/door') {
+          updateDoorUI(msg);
+        } else if (topic === 'indoor/lock_input') {
+          updateLockInputUI(msg);
+        } else if (topic === 'indoor/locklog') {
+          log(`Lock event: ${msg}`);
+        } else if (topic === 'indoor/air_quality') {
+          updateAirQualityUI(msg);
+        } else if (topic === 'indoor/air_value') {
+          document.getElementById('airValueText').textContent = msg;
+        } else if (topic === 'indoor/fire') {
+          updateFireUI(msg);
+        }
+      });
+
+      client.on('error', function(err) {
+        setConnStatus('Lỗi kết nối');
+        log('Lỗi: ' + err.message);
+      });
+
+      client.on('close', function() {
+        setConnStatus('Mất kết nối');
+        log('Mất kết nối');
+      });
+    }
+
+    function disconnectMQTT() {
+      if (client) {
+        client.end();
+        client = null;
+      }
+      setConnStatus('Chưa kết nối');
+      log('Ngắt kết nối thủ công');
+    }
+
+    function sendLED(state) {
+      if (!client) {
+        alert('Chưa kết nối MQTT');
+        return;
+      }
+      client.publish('indoor/led', state);
+      updateLedUI(state);
+      log(`Gửi [indoor/led] = ${state}`);
+    }
+
+    function sendBrightness() {
+      if (!client) {
+        alert('Chưa kết nối MQTT');
+        return;
+      }
+      const value = document.getElementById('brightness').value;
+      ledBrightnessCurrent = Number(value) || 0;
+      client.publish('indoor/brightness', String(value));
+      log(`Gửi [indoor/brightness] = ${value}`);
+    }
+
+    function setFanAuto(state) {
+      if (!client) {
+        alert('Chưa kết nối MQTT');
+        return;
+      }
+      client.publish('indoor/fanauto', state);
+      updateFanAutoStatus(state);
+      log(`Gửi [indoor/fanauto] = ${state}`);
+    }
+
+    function sendFanSpeed() {
+      if (!client) {
+        alert('Chưa kết nối MQTT');
+        return;
+      }
+      const value = document.getElementById('fanSpeed').value;
+      fanSpeedCurrent = Number(value) || 0;
+      client.publish('indoor/fan', String(value));
+      log(`Gửi [indoor/fan] = ${value}`);
+    }
+
+    function setSecurity(state) {
+      if (!client) {
+        alert('Chưa kết nối MQTT');
+        return;
+      }
+      client.publish('indoor/security', state);
+      updateSecurityStatus(state);
+      log(`Gửi [indoor/security] = ${state}`);
+    }
+
+    function sendLockKey(key) {
+      if (!client) {
+        alert('Chưa kết nối MQTT');
+        return;
+      }
+      client.publish('indoor/lock', key);
+      log(`Gửi [indoor/lock] = ${key}`);
+    }
+
+    changeBrightnessText(document.getElementById('brightness').value);
+    changeFanText(document.getElementById('fanSpeed').value);
+    updateLedUI('OFF');
+    updateFanAutoStatus('OFF');
+    updateSecurityStatus('OFF');
+    updateAlarmUI('OFF');
+    updateGateUI('no one outside');
+    updateDoorUI('LOCKED');
+    updateLockInputUI('');
+    updateAirQualityUI('OK');
+    updateFireUI('SAFE');
+    initEnergyChart();
+    setInterval(updateEnergyModel, 1000);
+  </script>
+</body>
+</html>
